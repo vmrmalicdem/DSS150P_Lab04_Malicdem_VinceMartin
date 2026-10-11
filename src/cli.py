@@ -20,6 +20,8 @@ def main(argv: list[str] | None = None) -> int:
     p_ing = sub.add_parser("ingest", help="Ingest the source into the raw layer")
     p_ing.add_argument("--mode", choices=["full", "incremental"], default="incremental")
     p_ing.add_argument("--force", action="store_true", help="Full refresh: discard checkpoint and batches")
+    p_ing.add_argument("--stop-after", type=int, default=None, metavar="N",
+                       help="Recovery demo: stop on purpose after N committed batches (exit code 3)")
     sub.add_parser("status", help="Show checkpoint state and logical duplicate check")
     args = ap.parse_args(argv)
 
@@ -42,13 +44,16 @@ def main(argv: list[str] | None = None) -> int:
             if args.mode == "full":
                 res = ingest.full_ingest(settings)
             else:
-                res = ingest.incremental_ingest(settings, force=args.force)
+                res = ingest.incremental_ingest(settings, force=args.force, stop_after=args.stop_after)
             print(json.dumps(res, indent=2))
         elif args.cmd == "status":
             print(json.dumps(ingest.load_checkpoint(settings), indent=2))
             rows, distinct = ingest.logical_row_count(settings)
             print(f"raw rows={rows} distinct_row_hashes={distinct} duplicates={rows - distinct}")
-    except (FileNotFoundError, ingest.SourceChangedError, ValueError) as exc:
+    except ingest.IntentionalStop as exc:
+        print(f"STOPPED: {exc}")
+        return 3
+    except (FileNotFoundError, ingest.SourceChangedError, ingest.BatchValidationError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     return 0

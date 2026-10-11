@@ -112,14 +112,63 @@ def _batches_dir(settings: dict) -> Path:
     return resolve(settings, settings["paths"]["raw_dir"]) / "batches"
 
 
-def _committed_hashes(settings: dict, hash_col: str) -> set[str]:
+class IntentionalStop(RuntimeError):
+    """Raised by --stop-after to simulate a run that is interrupted after N committed batches."""
+
+
+class BatchValidationError(RuntimeError):
+    pass
+
+
+def _committed_files(settings: dict, cp: dict) -> list[Path]:
+    return [resolve(settings, b["file"]) for b in cp["committed_batches"]]
+
+
+def _clean_orphans(settings: dict, cp: dict) -> list[str]:
+    """Delete batch files that are not listed in the checkpoint (written, then the run died before commit)."""
+    keep = {p.resolve() for p in _committed_files(settings, cp)}
+    removed = []
+    for tmp in _batches_dir(settings).glob("*.tmp"):
+        tmp.unlink()
+        removed.append(tmp.name)
+    for f in _batches_dir(settings).glob("batch_*.csv"):
+        if f.resolve() not in keep:
+            f.unlink()
+            removed.append(f.name)
+    if removed:
+        log.warning("removed uncommitted leftovers from an interrupted run: %s", removed)
+    return removed
+
+
+def _committed_hashes(settings: dict, cp: dict, hash_col: str) -> set[str]:
     seen: set[str] = set()
-    for f in sorted(_batches_dir(settings).glob("batch_*.csv")):
+    for f in _committed_files(settings, cp):
         seen.update(pd.read_csv(f, usecols=[hash_col], dtype=str)[hash_col])
     return seen
 
 
-def incremental_ingest(settings: dict, run_id: str | None = None, force: bool = False) -> dict:
+def _validate_batch(path: Path, expected: pd.DataFrame, hash_col: str, seq_start: int, seq_end: int) -> None:
+    """Re-read the written batch and prove it matches what we meant to write, before the checkpoint moves."""
+    back = pd.read_csv(path, dtype=str, keep_default_na=False)
+    problems = []
+    if len(back) != len(expected):
+        problems.append(f"row count {len(back)} != expected {len(expected)}")
+    else:
+        if list(back[hash_col]) != list(expected[hash_col]):
+            problems.append("row hashes differ from the in-memory batch")
+        if list(back[SEQ_COL].astype(int)) != list(expected[SEQ_COL]):
+            problems.append("source sequence differs from the in-memory batch")
+    for col in AUDIT_COLS:
+        if col not in back.columns or (back[col] == "").any():
+            problems.append(f"audit column {col} missing or empty")
+    if len(back) and (int(back[SEQ_COL].astype(int).min()) < seq_start or int(back[SEQ_COL].astype(int).max()) > seq_end):
+        problems.append("source sequence outside the batch range")
+    if problems:
+        raise BatchValidationError(f"{path.name}: " + "; ".join(problems))
+
+
+def incremental_ingest(settings: dict, run_id: str | None = None, force: bool = False,
+                       stop_after: int | None = None) -> dict:
     run_id = run_id or new_run_id()
     src, checksum = _check_source(settings)
     ing = settings["ingestion"]
@@ -159,12 +208,14 @@ def incremental_ingest(settings: dict, run_id: str | None = None, force: bool = 
         raise SourceChangedError("Batching parameters changed since last run; rerun with --force")
 
     done = {b["batch_id"] for b in cp["committed_batches"]}
+    _batches_dir(settings).mkdir(parents=True, exist_ok=True)
+    orphans = _clean_orphans(settings, cp)
     key = settings["dataset"].get("business_key") or []
-    committed = _committed_hashes(settings, hash_col) if not key else None
+    committed = _committed_hashes(settings, cp, hash_col) if not key else None
     committed_keys = None
     if key:
         committed_keys = set()
-        for f in sorted(_batches_dir(settings).glob("batch_*.csv")):
+        for f in _committed_files(settings, cp):
             committed_keys.update(map(tuple, pd.read_csv(f, usecols=key, dtype=str).itertuples(index=False)))
 
     skipped, written = [], []
@@ -180,7 +231,9 @@ def incremental_ingest(settings: dict, run_id: str | None = None, force: bool = 
         chunk[SEQ_COL] = range(start, start + len(chunk))
         chunk[hash_col] = row_hash(chunk, src_cols)
         if key:
-            dup = chunk.duplicated(subset=key, keep="first") | chunk[key].apply(tuple, axis=1).isin(committed_keys)
+            keys_str = list(map(tuple, chunk[key].astype(str).itertuples(index=False)))
+            dup = chunk.duplicated(subset=key, keep="first") | pd.Series([k in committed_keys for k in keys_str],
+                                                                         index=chunk.index)
         else:
             dup = chunk.duplicated(subset=[hash_col], keep="first") | chunk[hash_col].isin(committed)
         dupes, keep = chunk[dup], chunk[~dup].copy()
@@ -196,6 +249,11 @@ def incremental_ingest(settings: dict, run_id: str | None = None, force: bool = 
         tmp = final.with_suffix(".csv.tmp")
         keep.to_csv(tmp, index=False)
         os.replace(tmp, final)
+        try:
+            _validate_batch(final, keep, hash_col, start, start + len(chunk) - 1)
+        except BatchValidationError:
+            final.unlink(missing_ok=True)  # never leave an unvalidated batch behind; checkpoint stays put
+            raise
         if len(dupes):
             qdir = resolve(settings, settings["paths"]["quarantine_dir"])
             qdir.mkdir(parents=True, exist_ok=True)
@@ -220,15 +278,26 @@ def incremental_ingest(settings: dict, run_id: str | None = None, force: bool = 
         _atomic_write_text(_checkpoint_path(settings), json.dumps(cp, indent=2))  # commit point
         written.append(i)
         log.info("batch %d committed: %d written, %d quarantined", i, len(keep), len(dupes))
+        if stop_after is not None and len(written) >= stop_after:
+            _write_run_log(settings, run_id, {
+                "pipeline_run_id": run_id, "mode": "incremental", "status": "interrupted_intentionally",
+                "stopped_at_utc": _utc_now(), "batches_written": written, "last_committed_seq": cp["last_committed_seq"],
+            })
+            raise IntentionalStop(
+                f"Stopped on purpose after {len(written)} committed batch(es) (--stop-after). "
+                "Rerun without the flag to resume."
+            )
 
     summary = {
         "pipeline_run_id": run_id,
         "mode": "incremental",
+        "status": "completed",
         "finished_at_utc": _utc_now(),
         "source_checksum": checksum,
         "batches_total": num_batches,
         "batches_written": written,
         "batches_skipped": skipped,
+        "uncommitted_leftovers_removed": orphans,
         "last_committed_seq": cp["last_committed_seq"],
         "rows_written_this_run": sum(b["rows_written"] for b in cp["committed_batches"] if b["batch_id"] in written),
     }

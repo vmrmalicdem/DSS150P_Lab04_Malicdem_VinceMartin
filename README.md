@@ -19,8 +19,19 @@ _add citation_.
 
 ## Quick start
 
+Windows PowerShell setup (run each line separately):
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1      # if blocked: Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+macOS/Linux and the pipeline commands (identical on every OS):
+
 ```bash
-python -m venv .venv && source .venv/bin/activate        # Windows: .venv\Scripts\activate
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env                                      # only environment-specific values
 # 1. Download the CSV from Kaggle and place it at data/source/ddos_traffic.csv (see data/source/README.md).
@@ -32,6 +43,7 @@ python -m src.cli ingest --mode full
 python -m src.cli ingest          # incremental simulation (4 batches); run it twice to see batches skipped
 python -m src.cli status
 python -m pytest -q
+python scripts/recovery_demo.py   # stop after 2 batches, resume, rerun -> docs/recovery_evidence.md
 ```
 
 Set `dataset.target_column` in `config/settings.yml` after reading the profile (the CLI auto-detects common names
@@ -49,8 +61,14 @@ such as `Label`), then rerun `profile` so the contract records the target. Commi
 - **Duplicates:** a deterministic hash of all source columns (or the configured `business_key`) identifies a logical
   record. Duplicates are written to `data/quarantine/dupes_batch_XXXX.csv`, not appended. Note this also removes
   genuinely identical rows in the source; the counts are in the checkpoint so nothing disappears silently.
-- **Safety:** every ingest first checks the source against the manifest checksum and refuses on mismatch. Batch files
-  are written to a temp name and renamed, and the checkpoint is updated only afterwards.
+- **Safety:** every ingest first checks the source against the manifest checksum and refuses on mismatch. Each batch
+  is written to a temp name and renamed, then **re-read and validated** (row count, row hashes, source sequence
+  range, audit columns). Only after validation passes is the checkpoint advanced. A batch that fails validation is
+  deleted and the checkpoint is left unchanged.
+- **Recovery:** the checkpoint is the only source of truth. On start, any batch file not listed in the checkpoint
+  (written by a run that died before committing) is deleted and rebuilt. `ingest --stop-after N` stops on purpose
+  after N committed batches (exit code 3); rerunning resumes from batch N+1 without duplicating anything.
+  `scripts/recovery_demo.py` runs stop → resume → rerun and saves the real output to `docs/recovery_evidence.md`.
 - **Audit columns** on every ingested row: `pipeline_run_id`, `ingested_at_utc`, `source_file`, `source_checksum`,
   `batch_id`. Per-run summaries go to `state/runs/<run_id>.json`.
 

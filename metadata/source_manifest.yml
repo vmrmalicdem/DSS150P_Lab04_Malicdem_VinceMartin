@@ -1,0 +1,16 @@
+dataset_id: kaggle-oktayrdeki-ddos-traffic-dataset
+title: DDoS Traffic (Network Traffic Dataset Under DDoS Attack)
+source_url: https://www.kaggle.com/datasets/oktayrdeki/ddos-traffic-dataset
+owner: oktayrdeki (Kaggle)
+expected_filename: ddos_traffic.csv
+placement: data/source/ddos_traffic.csv
+format: csv
+size_bytes: 37685016
+line_count_excluding_header: 852585
+checksum:
+  algorithm: sha256
+  value: f9242444870e2a33e81218f1c8ec54e4deb315b15da7cb420ace598214bdc504
+redistributable: false
+redistribution_note: Third-party Kaggle dataset; check the license on the dataset
+  page. Raw file is not committed to Git.
+recorded_at_utc: '2026-10-11T14:58:05+00:00'

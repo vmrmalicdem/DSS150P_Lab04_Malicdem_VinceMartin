@@ -1,0 +1,61 @@
+dataset_id: kaggle-oktayrdeki-ddos-traffic-dataset
+version: f9242444870e
+checksum:
+  algorithm: sha256
+  value: f9242444870e2a33e81218f1c8ec54e4deb315b15da7cb420ace598214bdc504
+target: target
+keys:
+  strategy: row_hash
+  business_key: []
+  note: No natural key assumed; uniqueness is enforced on a deterministic hash of
+    all source columns.
+row_count:
+  expected: 852585
+required_columns:
+- name: Highest Layer
+  type: string
+  nullable: false
+- name: Transport Layer
+  type: string
+  nullable: false
+- name: Source IP
+  type: integer
+  nullable: false
+  min: 0
+  max: 1
+- name: Dest IP
+  type: string
+  nullable: false
+- name: Source Port
+  type: integer
+  nullable: false
+  min: 0
+  max: 65530
+- name: Dest Port
+  type: integer
+  nullable: false
+  min: 0
+  max: 50890
+- name: Packet Length
+  type: integer
+  nullable: false
+  min: 42
+  max: 1514
+- name: Packets/Time
+  type: float
+  nullable: false
+  min: 0
+  max: 484.4
+- name: target
+  type: integer
+  nullable: false
+  min: 0
+  max: 1
+on_violation:
+  missing_required_column: fail
+  type_mismatch: quarantine
+  null_in_non_nullable: quarantine
+  duplicate_key: quarantine
+  out_of_range: warn
+notes: Generated from the profile of the frozen source snapshot; review ranges before
+  enforcing.

@@ -48,13 +48,65 @@ def test_resume_after_partial_run(ready):
     cp["committed_batches"] = cp["committed_batches"][:2]  # simulate crash after batch 2
     cp["last_committed_seq"] = cp["committed_batches"][-1]["seq_end"]
     cpath.write_text(json.dumps(cp))
-    # batch files 3-4 still exist on disk (orphans) -> rerun must rewrite them, not duplicate
-    for f in sorted((resolve(ready, ready["paths"]["raw_dir"]) / "batches").glob("batch_000[34].csv")):
-        f.unlink()
+    # batch files 3-4 still exist on disk as orphans (written, never committed) -> rerun must replace them,
+    # not treat their rows as duplicates of themselves
     res = ingest.incremental_ingest(ready, run_id="r2")
     assert res["batches_written"] == [3, 4] and res["batches_skipped"] == [1, 2]
+    assert sorted(res["uncommitted_leftovers_removed"]) == ["batch_0003.csv", "batch_0004.csv"]
+    rows, distinct = ingest.logical_row_count(ready)
+    cp2 = ingest.load_checkpoint(ready)
+    assert rows == distinct == sum(b["rows_written"] for b in cp2["committed_batches"])
+    assert sum(b["duplicates_quarantined"] for b in cp2["committed_batches"]) == 3  # only the real duplicates
+
+
+def test_stop_after_then_resume_without_duplicates(ready):
+    with pytest.raises(ingest.IntentionalStop):
+        ingest.incremental_ingest(ready, run_id="r1", stop_after=2)
+    cp = ingest.load_checkpoint(ready)
+    assert [b["batch_id"] for b in cp["committed_batches"]] == [1, 2]
+    rows_mid, _ = ingest.logical_row_count(ready)
+    res = ingest.incremental_ingest(ready, run_id="r2")
+    assert res["batches_skipped"] == [1, 2] and res["batches_written"] == [3, 4]
+    rows, distinct = ingest.logical_row_count(ready)
+    assert rows == distinct and rows > rows_mid
+    again = ingest.incremental_ingest(ready, run_id="r3")
+    assert again["batches_written"] == [] and ingest.logical_row_count(ready) == (rows, distinct)
+
+
+def test_failed_validation_leaves_checkpoint_unchanged(ready, monkeypatch):
+    real = ingest._validate_batch
+    calls = {"n": 0}
+
+    def flaky(path, expected, hash_col, s, e):
+        calls["n"] += 1
+        if calls["n"] == 3:  # third batch fails validation
+            raise ingest.BatchValidationError("injected failure")
+        return real(path, expected, hash_col, s, e)
+
+    monkeypatch.setattr(ingest, "_validate_batch", flaky)
+    with pytest.raises(ingest.BatchValidationError):
+        ingest.incremental_ingest(ready, run_id="r1")
+    cp = ingest.load_checkpoint(ready)
+    assert [b["batch_id"] for b in cp["committed_batches"]] == [1, 2]
+    assert not (resolve(ready, ready["paths"]["raw_dir"]) / "batches" / "batch_0003.csv").exists()
+    monkeypatch.setattr(ingest, "_validate_batch", real)
+    res = ingest.incremental_ingest(ready, run_id="r2")
+    assert res["batches_written"] == [3, 4]
     rows, distinct = ingest.logical_row_count(ready)
     assert rows == distinct
+
+
+def test_validator_catches_corrupted_batch(ready, tmp_path):
+    import pandas as pd
+    df = pd.DataFrame({"_row_hash": ["a", "b"], "_source_seq": [0, 1], "pipeline_run_id": ["r", "r"],
+                       "ingested_at_utc": ["t", "t"], "source_file": ["f", "f"], "source_checksum": ["c", "c"],
+                       "batch_id": [1, 1]})
+    p = tmp_path / "b.csv"
+    df.to_csv(p, index=False)
+    ingest._validate_batch(p, df, "_row_hash", 0, 1)  # good file passes
+    df.iloc[:1].to_csv(p, index=False)  # truncated on disk
+    with pytest.raises(ingest.BatchValidationError):
+        ingest._validate_batch(p, df, "_row_hash", 0, 1)
 
 
 def test_force_rebuilds_from_scratch(ready):
