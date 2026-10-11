@@ -34,6 +34,9 @@ def load_settings(settings_path: str | os.PathLike | None = None) -> dict:
     if override:
         settings["dataset"]["source_file"] = override
     return settings
+    seed = os.environ.get("RANDOM_SEED")
+    if seed:
+        settings["reproducibility"]["random_seed"] = int(seed)
 
 
 def resolve(settings: dict, relative: str) -> Path:

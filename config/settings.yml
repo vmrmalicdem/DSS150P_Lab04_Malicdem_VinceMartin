@@ -43,3 +43,25 @@ reproducibility:
   random_seed: 42
   test_size: 0.2
   metric_tolerance: 0.01   # used from the modelling phase onward
+
+  # ---- Phase II: transformation, model and outputs ----
+staging:
+  file: data/staging/staging.csv
+  rejects_file: data/quarantine/staging_rejects.csv
+
+curated:
+  file: data/curated/curated.csv
+
+model:
+  target: target
+  # Order matters: it must match the Phase I baseline so metrics reproduce.
+  categorical_features: [Highest Layer, Transport Layer, Dest IP]
+  numeric_features: [Source Port, Dest Port, Packet Length, Packets/Time]
+  excluded_columns: [Source IP]      # identical to the target (label leakage)
+  hyperparameters:
+    max_depth: 10                    # random_state is taken from reproducibility.random_seed
+  split_manifest: metadata/split_manifest.json
+  metrics_file: outputs/metrics.json
+  comparison_file: outputs/metrics_comparison.json
+  predictions_file: outputs/predictions.csv
+  model_file: outputs/model/model.joblib
