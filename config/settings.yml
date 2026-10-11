@@ -1,0 +1,45 @@
+dataset:
+  id: kaggle-oktayrdeki-ddos-traffic-dataset
+  title: DDoS Traffic (Network Traffic Dataset Under DDoS Attack)
+  url: https://www.kaggle.com/datasets/oktayrdeki/ddos-traffic-dataset
+  owner: oktayrdeki (Kaggle)
+  # Expected local file name inside data/source/. Change it here (not in code) if your download differs.
+  source_file: data/source/ddos_traffic.csv
+  encoding: utf-8
+  delimiter: ","
+  # Set to the label column after reviewing source_profile.md. null = auto-detect common names.
+  target_column: null
+  # Candidate target names tried in order when target_column is null (case-insensitive).
+  target_candidates: [label, class, attack, target, is_attack, attack_type]
+  # Natural business key, if any. Empty list => deterministic hash of all columns.
+  business_key: []
+  # Reliable event timestamp column, if any. null => row-sequence simulation (see README).
+  timestamp_column: null
+
+paths:
+  source_dir: data/source
+  raw_dir: data/raw
+  staging_dir: data/staging
+  curated_dir: data/curated
+  quarantine_dir: data/quarantine
+  metadata_dir: metadata
+  state_dir: state
+  checkpoint_file: state/ingest_checkpoint.json
+  run_log_dir: state/runs
+
+ingestion:
+  num_batches: 4          # >= 3 required by the lab
+  chunk_rows: 200000      # streaming chunk size when reading the source
+  hash_column: _row_hash
+
+contract:
+  on_missing_required_column: fail
+  on_type_violation: quarantine
+  on_null_in_non_nullable: quarantine
+  on_duplicate_key: quarantine
+  on_out_of_range: warn
+
+reproducibility:
+  random_seed: 42
+  test_size: 0.2
+  metric_tolerance: 0.01   # used from the modelling phase onward
