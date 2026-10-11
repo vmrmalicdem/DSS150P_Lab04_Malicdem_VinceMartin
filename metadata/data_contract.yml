@@ -9,6 +9,8 @@ keys:
   business_key: []
   note: No natural key assumed; uniqueness is enforced on a deterministic hash of
     all source columns.
+  excluded_from_modeling:
+  - Source IP
 row_count:
   expected: 852585
 required_columns:

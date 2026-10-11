@@ -1,0 +1,10 @@
+{
+  "pipeline_run_id": "run_20261011T164027Z_134f93",
+  "mode": "incremental",
+  "status": "interrupted_intentionally",
+  "stopped_at_utc": "2026-10-11T16:40:29+00:00",
+  "batches_written": [
+    1
+  ],
+  "last_committed_seq": 213146
+}

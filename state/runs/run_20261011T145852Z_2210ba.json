@@ -1,0 +1,9 @@
+{
+  "pipeline_run_id": "run_20261011T145852Z_2210ba",
+  "mode": "full",
+  "ingested_at_utc": "2026-10-11T14:58:52+00:00",
+  "source_file": "data/source/ddos_traffic.csv",
+  "source_checksum": "f9242444870e2a33e81218f1c8ec54e4deb315b15da7cb420ace598214bdc504",
+  "raw_file": "data\\raw\\run_20261011T145852Z_2210ba\\full\\ddos_traffic.csv",
+  "line_count_excluding_header": 852585
+}

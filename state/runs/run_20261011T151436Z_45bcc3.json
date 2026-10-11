@@ -1,0 +1,19 @@
+{
+  "pipeline_run_id": "run_20261011T151436Z_45bcc3",
+  "mode": "incremental",
+  "status": "completed",
+  "finished_at_utc": "2026-10-11T15:14:40+00:00",
+  "source_checksum": "f9242444870e2a33e81218f1c8ec54e4deb315b15da7cb420ace598214bdc504",
+  "batches_total": 4,
+  "batches_written": [
+    3,
+    4
+  ],
+  "batches_skipped": [
+    1,
+    2
+  ],
+  "uncommitted_leftovers_removed": [],
+  "last_committed_seq": 852584,
+  "rows_written_this_run": 82073
+}

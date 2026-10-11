@@ -24,16 +24,17 @@
 |---|---|---:|---:|---:|---|---|---|
 | Highest Layer | str | 0 | 0.00% | 10 |  |  |  |
 | Transport Layer | str | 0 | 0.00% | 2 |  |  |  |
-| Source IP | int64 | 0 | 0.00% | 2 | 0 | 1 |  |
-| Dest IP | str | 0 | 0.00% | 17 |  |  |  |
-| Source Port | int64 | 0 | 0.00% | 649 | 0 | 65530 |  |
-| Dest Port | int64 | 0 | 0.00% | 14 | 0 | 50890 |  |
+| Source IP | int64 | 0 | 0.00% | 2 | 0 | 1 | identifier/leakage review, leaks target |
+| Dest IP | str | 0 | 0.00% | 17 |  |  | identifier/leakage review |
+| Source Port | int64 | 0 | 0.00% | 649 | 0 | 65530 | identifier/leakage review |
+| Dest Port | int64 | 0 | 0.00% | 14 | 0 | 50890 | identifier/leakage review |
 | Packet Length | int64 | 0 | 0.00% | 81 | 42 | 1514 |  |
-| Packets/Time | float64 | 0 | 0.00% | 4,843 | 0 | 484.4 | timestamp-like |
+| Packets/Time | float64 | 0 | 0.00% | 4,843 | 0 | 484.4 |  |
 | target | int64 | 0 | 0.00% | 2 | 0 | 1 |  |
 
 ## Risks and review items
-- Identifier / leakage candidates to review before modelling: none flagged.
-- Timestamp-like columns: Packets/Time (not assumed reliable; ingestion uses a row-sequence simulation unless `timestamp_column` is set).
+- Identifier / leakage candidates to review before modelling: Source IP, Dest IP, Source Port, Dest Port.
+- Timestamp-like columns: none (not assumed reliable; ingestion uses a row-sequence simulation unless `timestamp_column` is set).
 - Columns containing inf: none.
 - Columns with nulls: none.
+- Columns that perfectly determine the target (label leakage, excluded from modelling): Source IP.

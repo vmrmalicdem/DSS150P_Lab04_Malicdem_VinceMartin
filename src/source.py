@@ -12,8 +12,8 @@ import yaml
 
 from .config import resolve
 
-LEAK_HINTS = re.compile(r"(^|_)(id|ip|flow|timestamp|time|date|port|label|class|attack)(_|$)", re.I)
-TIME_HINTS = re.compile(r"(time|date|stamp)", re.I)
+LEAK_HINTS = re.compile(r"(^|[\s_])(id|ip|flow|timestamp|time|date|port|label|class|attack)([\s_]|$)", re.I)
+TIME_HINTS = re.compile(r"(^|[\s_])(timestamp|datetime|date|time)([\s_]|$)", re.I)
 
 
 def sha256_file(path: Path, block: int = 1 << 20) -> str:
@@ -36,9 +36,11 @@ def source_path(settings: dict) -> Path:
 
 def read_source(settings: dict, **kwargs) -> pd.DataFrame:
     ds = settings["dataset"]
-    return pd.read_csv(
+    df = pd.read_csv(
         source_path(settings), encoding=ds["encoding"], sep=ds["delimiter"], low_memory=False, **kwargs
     )
+    df.columns = df.columns.str.strip()
+    return df
 
 
 def detect_target(settings: dict, columns: list[str]) -> str | None:
@@ -107,12 +109,16 @@ def profile_source(settings: dict) -> dict:
             "distinct": int(s.nunique(dropna=True)),
         }
         if pd.api.types.is_numeric_dtype(s):
-            info["min"], info["max"] = _num(s.min()), _num(s.max())
+            fin = s[np.isfinite(s.astype("float64"))]
+            info["min"], info["max"] = _num(fin.min()), _num(fin.max())
             info["inf_count"] = int(np.isinf(s.astype("float64")).sum())
         else:
             info["sample"] = [str(v) for v in s.dropna().unique()[:5]]
         info["candidate_key"] = bool(n > 0 and info["distinct"] == n and info["nulls"] == 0)
         info["flags"] = _flags(c, info)
+        if target and c != target and 1 < info["distinct"] <= 1000:
+            if df.groupby(c)[target].nunique().max() == 1:
+                info["flags"].append("leaks target")
         cols.append(info)
     key = settings["dataset"].get("business_key") or []
     prof = {
@@ -185,7 +191,9 @@ def write_profile_md(settings: dict, prof: dict) -> Path:
             f"| {c['name']} | {c['dtype']} | {c['nulls']:,} | {c['null_rate']:.2%} | {c['distinct']:,} | "
             f"{c.get('min', '')} | {c.get('max', '')} | {', '.join(c['flags'])} |"
         )
-    flagged = [c["name"] for c in prof["columns_detail"] if "identifier/leakage review" in c["flags"]]
+    flagged = [c["name"] for c in prof["columns_detail"]
+               if "identifier/leakage review" in c["flags"] or "leaks target" in c["flags"]]
+    leaks = [c["name"] for c in prof["columns_detail"] if "leaks target" in c["flags"]]
     L += [
         "",
         "## Risks and review items",
@@ -194,6 +202,7 @@ def write_profile_md(settings: dict, prof: dict) -> Path:
         "(not assumed reliable; ingestion uses a row-sequence simulation unless `timestamp_column` is set).",
         f"- Columns containing inf: {', '.join(c['name'] for c in prof['columns_detail'] if 'contains inf' in c['flags']) or 'none'}.",
         "- Columns with nulls: " + (", ".join(c["name"] for c in prof["columns_detail"] if c["nulls"]) or "none") + ".",
+        f"- Columns that perfectly determine the target (label leakage, excluded from modelling): {', '.join(leaks) or 'none'}.",
     ]
     out = resolve(settings, settings["paths"]["metadata_dir"]) / "source_profile.md"
     out.write_text("\n".join(L) + "\n", encoding="utf-8")
@@ -224,6 +233,7 @@ def write_contract(settings: dict, prof: dict) -> Path:
             "business_key": key,
             "note": "No natural key assumed; uniqueness is enforced on a deterministic hash of all source columns."
             if not key else "Uniqueness enforced on the configured business key.",
+            "excluded_from_modeling": [c["name"] for c in prof["columns_detail"] if "leaks target" in c["flags"]],
         },
         "row_count": {"expected": prof["rows"]},
         "required_columns": [

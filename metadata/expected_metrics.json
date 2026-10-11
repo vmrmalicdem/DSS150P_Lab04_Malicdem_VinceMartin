@@ -1,19 +1,25 @@
 {
-  "_note": "Baseline for the DDoS Traffic classification task. The group's notebook was not available, so this baseline is to be captured from the first documented from-scratch run (Phase II) and then frozen. Fill the null fields from your group's report if you have them.",
+  "_note": "No previous group result exists (single student, assigned dataset only). Baseline captured from the first documented from-scratch runs, then frozen. Official baseline = deduplicated data with the leaking column removed.",
   "baseline_origin": "reproduced_from_scratch",
   "dataset_id": "kaggle-oktayrdeki-ddos-traffic-dataset",
-  "source_checksum_sha256": null,
-  "task": "classification",
-  "target": null,
+  "source_checksum_sha256": "f9242444870e2a33e81218f1c8ec54e4deb315b15da7cb420ace598214bdc504",
+  "source_rows": 852585,
+  "source_unique_rows": 85745,
+  "task": "binary classification",
+  "target": "target",
+  "target_distribution": {"0": 0.5335, "1": 0.4665},
   "model": {
-    "family": null,
-    "hyperparameters": {},
+    "family": "DecisionTreeClassifier",
+    "hyperparameters": {"max_depth": 10, "random_state": 42},
     "random_seed": 42
   },
   "features": {
-    "selection": null,
-    "excluded_columns": [],
-    "preprocessing": []
+    "selection": "all columns except target and Source IP",
+    "excluded_columns": ["Source IP"],
+    "preprocessing": [
+      "one-hot encode Highest Layer, Transport Layer, Dest IP (handle_unknown=ignore)",
+      "numeric columns passed through unchanged"
+    ]
   },
   "split": {
     "strategy": "stratified train/test",
@@ -22,12 +28,21 @@
     "manifest": "metadata/split_manifest.json"
   },
   "metrics": {
-    "accuracy": null,
-    "precision": null,
-    "recall": null,
-    "f1": null,
-    "roc_auc": null
+    "accuracy": 0.9997,
+    "precision": 0.9997,
+    "recall": 0.9999,
+    "f1": 0.9998,
+    "roc_auc": 0.9984
   },
+  "metrics_reference": {
+    "first_run_with_source_ip_leak": {"accuracy": 1.0, "precision": 1.0, "recall": 1.0, "f1": 1.0, "roc_auc": 1.0},
+    "full_data_no_leak_column": {"accuracy": 1.0, "precision": 0.9999, "recall": 1.0, "f1": 0.9999, "roc_auc": 1.0}
+  },
+  "known_limitations": [
+    "89.9% of source rows are exact duplicates (766,840 of 852,585); on the full data a random split places identical rows in train and test.",
+    "Source IP is identical to the target (crosstab: 454,849 rows 0/0 and 397,736 rows 1/1, no mixed rows), so it is excluded as label leakage.",
+    "Even without Source IP, single features reach about 99.5% accuracy (Source Port 0.9946, Dest Port 0.9945, Packet Length 0.9963), so near-perfect scores are expected and the task is not discriminating between models."
+  ],
   "tolerance": {
     "absolute": 0.01,
     "applies_to": ["accuracy", "precision", "recall", "f1", "roc_auc"]
