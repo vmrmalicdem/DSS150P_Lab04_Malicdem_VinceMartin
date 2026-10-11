@@ -1,0 +1,35 @@
+{
+  "_note": "Baseline for the DDoS Traffic classification task. The group's notebook was not available, so this baseline is to be captured from the first documented from-scratch run (Phase II) and then frozen. Fill the null fields from your group's report if you have them.",
+  "baseline_origin": "reproduced_from_scratch",
+  "dataset_id": "kaggle-oktayrdeki-ddos-traffic-dataset",
+  "source_checksum_sha256": null,
+  "task": "classification",
+  "target": null,
+  "model": {
+    "family": null,
+    "hyperparameters": {},
+    "random_seed": 42
+  },
+  "features": {
+    "selection": null,
+    "excluded_columns": [],
+    "preprocessing": []
+  },
+  "split": {
+    "strategy": "stratified train/test",
+    "test_size": 0.2,
+    "random_seed": 42,
+    "manifest": "metadata/split_manifest.json"
+  },
+  "metrics": {
+    "accuracy": null,
+    "precision": null,
+    "recall": null,
+    "f1": null,
+    "roc_auc": null
+  },
+  "tolerance": {
+    "absolute": 0.01,
+    "applies_to": ["accuracy", "precision", "recall", "f1", "roc_auc"]
+  }
+}
