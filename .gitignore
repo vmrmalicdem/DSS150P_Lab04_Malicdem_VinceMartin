@@ -26,6 +26,8 @@ data/quarantine/*
 # runtime state and outputs
 state/*
 !state/.gitkeep
+!state/ingest_checkpoint.json
+!state/runs/
 outputs/model/*
 !outputs/model/.gitkeep
 logs/
