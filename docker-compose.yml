@@ -1,0 +1,40 @@
+# Usage:  docker compose up --build --abort-on-container-exit
+# Requires a .env file (copy .env.example) and the raw layer produced by `python -m src.cli ingest`.
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  pipeline:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy   # pipeline starts only after PostgreSQL accepts connections
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres        # service name replaces localhost inside the Compose network
+      POSTGRES_PORT: "5432"
+    volumes:
+      - ./data:/app/data
+      - ./state:/app/state
+      - ./metadata:/app/metadata
+      - ./outputs:/app/outputs
+    command: ["sh", "-c", "python -m src.cli pipeline && python -m src.cli load-db"]
+    restart: "no"
+
+volumes:
+  pgdata:
