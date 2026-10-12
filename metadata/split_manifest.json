@@ -1,0 +1,31 @@
+{
+  "method": "sklearn.model_selection.train_test_split",
+  "stratified_on": "target",
+  "seed": 42,
+  "test_size": 0.2,
+  "id_column": "source_row_key",
+  "curated_file": "data/curated/curated.csv",
+  "curated_sha256": "a4413bc9d59f919820c8ad637e5056911793f5734ac638abd54e9609b004670d",
+  "rows_total": 85745,
+  "train": {
+    "rows": 68596,
+    "class_counts": {
+      "0": 5220,
+      "1": 63376
+    },
+    "ids_sha256": "c162bdd0f640909aacac98ce2b208c93c41b04c7f29d70042b2b84514fe02f1f"
+  },
+  "test": {
+    "rows": 17149,
+    "class_counts": {
+      "0": 1305,
+      "1": 15844
+    },
+    "ids_sha256": "33395bd6f9303dd720d6f228ef5d97d67315694f112f0f2da1e0c5a9a78f0f1f"
+  },
+  "libraries": {
+    "scikit-learn": "1.9.1",
+    "pandas": "3.0.5",
+    "numpy": "2.5.3"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "pipeline_run_id": "run_20261012T055918Z_7956f9",
+  "created_at_utc": "2026-10-12T05:59:18+00:00",
+  "task": "binary classification",
+  "target": "target",
+  "model": {
+    "family": "DecisionTreeClassifier",
+    "hyperparameters": {
+      "max_depth": 10,
+      "random_state": 42
+    }
+  },
+  "features": {
+    "categorical": [
+      "Highest Layer",
+      "Transport Layer",
+      "Dest IP"
+    ],
+    "numeric": [
+      "Source Port",
+      "Dest Port",
+      "Packet Length",
+      "Packets/Time"
+    ],
+    "excluded": [
+      "Source IP"
+    ]
+  },
+  "split_manifest": "metadata/split_manifest.json",
+  "metrics": {
+    "accuracy": 0.9997,
+    "precision": 0.9997,
+    "recall": 0.9999,
+    "f1": 0.9998,
+    "roc_auc": 0.9984
+  },
+  "metric_definitions": {
+    "accuracy": "Share of test rows predicted correctly.",
+    "precision": "TP / (TP + FP) for the positive class (target = 1, attack traffic).",
+    "recall": "TP / (TP + FN) for the positive class (target = 1).",
+    "f1": "Harmonic mean of precision and recall for the positive class.",
+    "roc_auc": "Area under the ROC curve from predicted probability of target = 1."
+  },
+  "environment": {
+    "python": "3.13.0",
+    "scikit-learn": "1.9.1",
+    "pandas": "3.0.5",
+    "numpy": "2.5.3"
+  }
+}

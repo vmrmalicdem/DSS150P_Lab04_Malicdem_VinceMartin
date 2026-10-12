@@ -1,0 +1,42 @@
+{
+  "tolerance_absolute": 0.01,
+  "passed": true,
+  "metrics": {
+    "accuracy": {
+      "expected": 0.9997,
+      "actual": 0.9997,
+      "abs_diff": 0.0,
+      "within_tolerance": true,
+      "equal_to_3_decimals": true
+    },
+    "precision": {
+      "expected": 0.9997,
+      "actual": 0.9997,
+      "abs_diff": 0.0,
+      "within_tolerance": true,
+      "equal_to_3_decimals": true
+    },
+    "recall": {
+      "expected": 0.9999,
+      "actual": 0.9999,
+      "abs_diff": 0.0,
+      "within_tolerance": true,
+      "equal_to_3_decimals": true
+    },
+    "f1": {
+      "expected": 0.9998,
+      "actual": 0.9998,
+      "abs_diff": 0.0,
+      "within_tolerance": true,
+      "equal_to_3_decimals": true
+    },
+    "roc_auc": {
+      "expected": 0.9984,
+      "actual": 0.9984,
+      "abs_diff": 0.0,
+      "within_tolerance": true,
+      "equal_to_3_decimals": true
+    }
+  },
+  "compared_at_utc": "2026-10-12T05:59:18+00:00"
+}
